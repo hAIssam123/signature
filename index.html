@@ -3,23 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>연수 등록부 모바일 서명 시스템 (출력 양식 최적화)</title>
+    <title>연수 등록부 모바일 서명 시스템 (실시간 동기화)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* ==============================================
-           [인쇄 전용 스타일 설정 - 수정됨] 
-           ============================================== */
         @media print {
-            /* 1. 인쇄 시 화면용 일반 UI를 강제 숨김 */
             body > header, 
             body > main, 
             .no-print {
                 display: none !important;
             }
-            /* 2. 인쇄 전용 영역을 화면 맨 위로 끌어올려 표시 */
             #print-area {
                 display: block !important;
                 width: 100% !important;
@@ -38,20 +34,29 @@
                 print-color-adjust: exact;
             }
         }
+        /* 모바일 전체 화면 모드일 때 스킨의 테두리를 없애고 가득 채움 */
+        .fullscreen-mobile {
+            max-width: 100% !important;
+            width: 100% !important;
+            height: 100vh !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+        }
     </style>
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 font-sans">
 
-    <header class="bg-slate-900 text-white p-4 shadow-md no-print">
+    <header id="admin-header" class="bg-slate-900 text-white p-4 shadow-md no-print">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <h1 class="text-xl font-bold flex items-center gap-2">📝 QR 연수 등록부 서명 통합 솔루션</h1>
-            <span class="bg-indigo-600 text-xs px-3 py-1 rounded-full font-semibold">웹 프로토타입</span>
+            <h1 class="text-xl font-bold flex items-center gap-2">📝 QR 연수 등록부 서명 통합 솔루션 (실시간 DB 연동)</h1>
+            <span class="bg-emerald-600 text-xs px-3 py-1 rounded-full font-semibold">실시간 동기화 On</span>
         </div>
     </header>
 
     <main class="max-w-7xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-6 no-print">
         
-        <section class="lg:col-span-7 space-y-6">
+        <section id="admin-left-section" class="lg:col-span-7 space-y-6">
             
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                 <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">🛠️ [관리자] 연수 및 교육 정보 설정</h2>
@@ -64,7 +69,7 @@
 
                 <div class="mb-4">
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">교육 설명 (일시, 방법 등)</label>
-                    <textarea id="admin-desc-input" rows="3" oninput="updateTitleAndDesc()" placeholder="예) 일시: 2026년 7월 14일 14:00&#10;방법: 본교 시청각실 대면 집합 연수&#10;강사: 홍길동 수석교사"
+                    <textarea id="admin-desc-input" rows="3" oninput="updateTitleAndDesc()"
                               class="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-sm">일시: 2026년 7월 14일 14:00&#10;방법: 본교 시청각실 대면 집합 연수&#10;강사: 홍길동 수석교사</textarea>
                 </div>
 
@@ -72,11 +77,11 @@
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">교사 리스트 등록 (Excel)</label>
                     <div class="flex flex-wrap gap-2">
                         <button onclick="downloadSampleExcel()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold py-2.5 px-4 rounded-lg transition flex items-center gap-1.5">
-                            📥 정해진 파일 형식(Excel) 다운로드
+                            📥 형식(Excel) 다운로드
                         </button>
                         <label class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold py-2.5 px-4 rounded-lg transition cursor-pointer flex items-center gap-1.5 border border-indigo-200">
-                            📤 엑셀 파일 업로드
-                            <input type="file" id="excel-file-input" accept=".xlsx, .xls" onchange="importExcel(event)" class="hidden">
+                            📤 엑셀 업로드 (기존 DB 초기화 후 업로드됨)
+                            <input type="file" id="excel-file-input" accept=".xlsx, .xls" onchange="importExcelAndUpload(event)" class="hidden">
                         </label>
                     </div>
                 </div>
@@ -84,8 +89,8 @@
 
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row items-center gap-6">
                 <div class="flex-1">
-                    <h2 class="text-lg font-bold text-slate-900 mb-2">🔗 QR 접속 링크 생성</h2>
-                    <p class="text-sm text-slate-500 mb-4">아래 버튼을 누르면 스마트폰으로 바로 접속해 서명할 수 있는 일회용 QR코드와 모바일 링크가 화면에 나타납니다.</p>
+                    <h2 class="text-lg font-bold text-slate-900 mb-2">🔗 모바일 서명 QR 배포</h2>
+                    <p class="text-sm text-slate-500 mb-4">아래 버튼을 누르면 스마트폰 전용 서명 페이지로 접속 가능한 QR 코드가 나타납니다. (관리자 페이지는 보이지 않음)</p>
                     <button onclick="generateQRCode()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow transition">
                         QR 링크 생성하기
                     </button>
@@ -123,9 +128,9 @@
 
         </section>
 
-        <section class="lg:col-span-5">
+        <section id="mobile-section" class="lg:col-span-5">
             <div class="sticky top-6">
-                <div class="bg-slate-950 p-3 rounded-[40px] shadow-2xl border-4 border-slate-800 max-w-[380px] mx-auto">
+                <div id="phone-container" class="bg-slate-950 p-3 rounded-[40px] shadow-2xl border-4 border-slate-800 max-w-[380px] mx-auto">
                     <div class="bg-white rounded-[32px] overflow-hidden min-h-[640px] flex flex-col justify-between">
                         
                         <div class="bg-indigo-900 text-white px-6 py-4 pt-6 text-center">
@@ -135,7 +140,7 @@
 
                         <div class="p-5 flex-1 overflow-y-auto space-y-5">
                             <div>
-                                <label class="block text-xs font-bold text-slate-500 mb-1.5">이름 검색 / 입력</label>
+                                <label class="block text-xs font-bold text-slate-500 mb-1.5">이름 검색 / 선택</label>
                                 <div class="relative">
                                     <input type="text" id="mobile-search" oninput="searchTeacher()" placeholder="성함을 입력하세요 (예: 홍길동)"
                                            class="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
@@ -191,7 +196,6 @@
             <h1 id="print-title" class="text-2xl font-bold underline decoration-double tracking-wide">2026학년도 에듀테크 활용 교사 연수</h1>
             <p class="text-xs text-gray-500 mt-1">참석자 연수 등록 명단</p>
         </div>
-
         <div class="mb-8">
             <table class="w-full border-collapse border border-black text-xs text-center">
                 <thead>
@@ -207,7 +211,6 @@
                 </tbody>
             </table>
         </div>
-
         <div class="border-t border-slate-300 pt-4 mt-12 text-left">
             <h3 class="text-xs font-bold text-gray-700 mb-2">[교육 정보 안내]</h3>
             <pre id="print-description" class="text-xs text-gray-600 font-sans leading-relaxed whitespace-pre-wrap">일시: 2026년 7월 14일 14:00&#10;방법: 본교 시청각실 대면 집합 연수&#10;강사: 홍길동 수석교사</pre>
@@ -216,19 +219,34 @@
 
 
     <script>
-        // 기본 마스터 데이터 (초기 리스트)
-        let teacherList = [
-            { id: 1, name: "김민준", affiliation: "서울초등학교", position: "교사", signed: false, signatureImg: "" },
-            { id: 2, name: "이서연", affiliation: "서울초등학교", position: "교사", signed: false, signatureImg: "" },
-            { id: 3, name: "박지민", affiliation: "미래중학교", position: "교감", signed: false, signatureImg: "" },
-            { id: 4, name: "김민준", affiliation: "미래중학교", position: "교사", signed: false, signatureImg: "" }, 
-            { id: 5, name: "이지원", affiliation: "경기고등학교", position: "부장교사", signed: false, signatureImg: "" }
-        ];
+        // ==============================================
+        // ⚠️ 여기에 본인의 Supabase Project URL과 Anon Key를 입력하세요!
+        // ==============================================
+        const SUPABASE_URL = "https://jyfkcvatsztgmtigoeoa.supabase.co/rest/v1/"; 
+        const SUPABASE_ANON_KEY = "sb_publishable_fJclOt95936TSrIx-LClEA_hzMZ3A0d";
+
+        const supabaseClient = supabase.createClient(https://jyfkcvatsztgmtigoeoa.supabase.co/rest/v1/, sb_publishable_fJclOt95936TSrIx-LClEA_hzMZ3A0d);
+
+        let teacherList = [];
         let selectedTeacherId = null;
         let sigPad = null;
-        let qrGenerator = null;
+        let isSignMode = false;
 
-        window.addEventListener("DOMContentLoaded", () => {
+        window.addEventListener("DOMContentLoaded", async () => {
+            // URL 파라미터 확인 (?mode=sign 인지 여부)
+            const urlParams = new URLSearchParams(window.location.search);
+            isSignMode = urlParams.get('mode') === 'sign';
+
+            if (isSignMode) {
+                // 모바일 전용 페이지 모드: 관리자 화면 완전 차단
+                document.getElementById("admin-header").style.display = "none";
+                document.getElementById("admin-left-section").style.display = "none";
+                document.querySelector("main").className = "flex justify-center items-center min-h-screen bg-slate-100";
+                document.getElementById("phone-container").className = "fullscreen-mobile bg-white flex flex-col justify-between w-full h-screen";
+                document.getElementById("mobile-section").className = "w-full h-screen";
+            }
+
+            // 시그니처 패드 초기화
             const canvas = document.getElementById("sig-pad");
             sigPad = new SignaturePad(canvas, {
                 backgroundColor: 'rgba(255, 255, 255, 0)',
@@ -245,8 +263,45 @@
             window.addEventListener("resize", resizeCanvas);
             resizeCanvas();
 
-            renderAdminTable();
+            // DB에서 명단 로드 및 실시간 연동 시작
+            await loadTeacherListFromDB();
+            subscribeToDatabase();
         });
+
+        // Supabase DB에서 목록 가져오기
+        async function loadTeacherListFromDB() {
+            const { data, error } = await supabaseClient
+                .from('teachers')
+                .select('*')
+                .order('id', { ascending: true });
+
+            if (error) {
+                console.error("데이터 로드 실패:", error);
+                return;
+            }
+            
+            // 기존 데이터 구조에 매핑
+            teacherList = data.map(item => ({
+                id: item.id,
+                name: item.name,
+                affiliation: item.affiliation,
+                position: item.position,
+                signed: item.signed,
+                signatureImg: item.signature_img
+            }));
+
+            renderAdminTable();
+        }
+
+        // 실시간(Realtime) DB 감시 설정
+        function subscribeToDatabase() {
+            supabaseClient
+                .channel('realtime_teachers')
+                .on('postgres_changes', { event: '*', filter: 'id=neq.0', schema: 'public', table: 'teachers' }, () => {
+                    loadTeacherListFromDB(); // DB에 변화가 생기면 즉시 목록 새로고침
+                })
+                .subscribe();
+        }
 
         function updateTitleAndDesc() {
             const titleVal = document.getElementById("admin-title-input").value;
@@ -269,50 +324,83 @@
             XLSX.writeFile(wb, "연수_서명대상_명단양식.xlsx");
         }
 
-        function importExcel(event) {
+        // 엑셀 업로드 시 기존 데이터 모두 지우고 DB에 새로 밀어넣기
+        async function importExcelAndUpload(event) {
             const input = event.target;
             const reader = new FileReader();
             
-            reader.onload = function () {
+            reader.onload = async function () {
                 const fileData = reader.result;
                 const workbook = XLSX.read(fileData, { type: 'binary' });
                 const sheetName = workbook.SheetNames[0];
                 const sheet = workbook.Sheets[sheetName];
                 const rows = XLSX.utils.sheet_to_json(sheet);
 
-                teacherList = rows.map((row, index) => ({
-                    id: index + 1,
+                const newTeachers = rows.map(row => ({
                     name: row["성명"] || row["이름"] || "",
                     affiliation: row["소속"] || "",
                     position: row["직위"] || "교사",
                     signed: false,
-                    signatureImg: ""
+                    signature_img: ""
                 })).filter(user => user.name !== "");
-                alert(`엑셀 명단 등록 성공! 총 ${teacherList.length}명의 교사 리스트를 불러왔습니다.`);
-                renderAdminTable();
+
+                if (newTeachers.length === 0) {
+                    alert("가져올 명단 데이터가 없습니다.");
+                    return;
+                }
+
+                // 1. 기존 DB 데이터 전체 삭제
+                const { error: deleteError } = await supabaseClient
+                    .from('teachers')
+                    .delete()
+                    .neq('id', 0); // 전체 삭제 우회 조건
+
+                if (deleteError) {
+                    alert("기존 데이터 초기화 실패: " + deleteError.message);
+                    return;
+                }
+
+                // 2. 새 명단 DB 일괄 추가 (Bulk Insert)
+                const { error: insertError } = await supabaseClient
+                    .from('teachers')
+                    .insert(newTeachers);
+
+                if (insertError) {
+                    alert("새 명단 등록 실패: " + insertError.message);
+                    return;
+                }
+
+                alert(`성공! 총 ${newTeachers.length}명의 교사 명단을 DB에 업로드했습니다.`);
+                await loadTeacherListFromDB();
                 resetSelectedTeacher();
             };
+
             if (input.files[0]) {
                 reader.readAsBinaryString(input.files[0]);
             }
         }
 
+        // QR 생성 시 ?mode=sign 링크로 생성되도록 수정
         function generateQRCode() {
             const qrTarget = document.getElementById("qrcode");
             const placeholder = document.getElementById("qr-placeholder");
             
             qrTarget.innerHTML = ""; 
             placeholder.classList.add("hidden");
-            const accessURL = window.location.href;
-            qrGenerator = new QRCode(qrTarget, {
-                text: accessURL,
+
+            // 현재 주소 뒤에 '?mode=sign'을 강제로 붙여 모바일 전용 주소 획득
+            const baseWebURL = window.location.origin + window.location.pathname;
+            const signPageURL = `${baseWebURL}?mode=sign`;
+
+            new QRCode(qrTarget, {
+                text: signPageURL,
                 width: 130,
                 height: 130,
                 colorDark : "#1e1b4b",
                 colorLight : "#ffffff",
                 correctLevel : QRCode.CorrectLevel.H
             });
-            alert("연수 등록용 QR 코드 및 모바일 주소가 정상적으로 활성화되었습니다!");
+            alert("스마트폰 전용 모바일 서명 QR이 생성되었습니다!");
         }
 
         function searchTeacher() {
@@ -326,7 +414,7 @@
 
             const matched = teacherList.filter(user => !user.signed && user.name.includes(query));
             if (matched.length === 0) {
-                dropdown.innerHTML = `<div class="p-3 text-xs text-slate-400 text-center">검색 결과가 없거나 이미 서명을 마친 교사입니다.</div>`;
+                dropdown.innerHTML = `<div class="p-3 text-xs text-slate-400 text-center">결과가 없거나 이미 서명을 완료했습니다.</div>`;
             } else {
                 dropdown.innerHTML = matched.map(user => `
                     <div onclick="processTeacherSelection(${user.id})" 
@@ -387,7 +475,8 @@
             sigPad.clear();
         }
 
-        function submitMobileSignature() {
+        // 서명 제출 처리 및 Supabase DB 반영
+        async function submitMobileSignature() {
             if (!selectedTeacherId) {
                 alert("본인 이름을 먼저 검색하고 선택해 주세요!");
                 return;
@@ -399,17 +488,22 @@
             }
 
             const imgData = sigPad.toDataURL("image/png");
-            const idx = teacherList.findIndex(user => user.id === selectedTeacherId);
-            if (idx !== -1) {
-                teacherList[idx].signed = true;
-                teacherList[idx].signatureImg = imgData;
+            
+            // Supabase에 서명 저장 처리
+            const { error } = await supabaseClient
+                .from('teachers')
+                .update({ signed: true, signature_img: imgData })
+                .eq('id', selectedTeacherId);
 
-                alert(`${teacherList[idx].name} 선생님, 서명이 안전하게 등록되었습니다!`);
-                
-                resetSelectedTeacher();
-                clearSig();
-                renderAdminTable();
+            if (error) {
+                alert("서명 전송 도중 에러가 발생했습니다: " + error.message);
+                return;
             }
+
+            alert("서명이 안전하게 데이터베이스에 등록되었습니다! 감사합니다.");
+            resetSelectedTeacher();
+            clearSig();
+            await loadTeacherListFromDB();
         }
 
         function renderAdminTable() {
@@ -418,27 +512,29 @@
             
             if (teacherList.length === 0) {
                 const emptyRow = `<tr><td colspan="5" class="p-8 text-slate-400 text-center">등록된 연수 대상자가 없습니다. 엑셀을 업로드해 주세요.</td></tr>`;
-                adminTableBody.innerHTML = emptyRow;
+                if (!isSignMode) adminTableBody.innerHTML = emptyRow;
                 printTableBody.innerHTML = emptyRow;
                 return;
             }
 
-            adminTableBody.innerHTML = teacherList.map((user, index) => {
-                let signColumn = `<span class="text-rose-500 font-bold bg-rose-50 px-2 py-1 rounded text-xs">미서명</span>`;
-                if (user.signed && user.signatureImg) {
-                    signColumn = `<img src="${user.signatureImg}" alt="Signature" class="h-8 mx-auto object-contain">`;
-                }
+            if (!isSignMode) {
+                adminTableBody.innerHTML = teacherList.map((user, index) => {
+                    let signColumn = `<span class="text-rose-500 font-bold bg-rose-50 px-2 py-1 rounded text-xs">미서명</span>`;
+                    if (user.signed && user.signatureImg) {
+                        signColumn = `<img src="${user.signatureImg}" alt="Signature" class="h-8 mx-auto object-contain">`;
+                    }
 
-                return `
-                    <tr class="hover:bg-slate-50 transition duration-150">
-                        <td class="border border-slate-200 px-3 py-2 font-mono text-slate-400">${index + 1}</td>
-                        <td class="border border-slate-200 px-3 py-2 text-slate-700">${user.affiliation}</td>
-                        <td class="border border-slate-200 px-3 py-2 text-slate-600">${user.position}</td>
-                        <td class="border border-slate-200 px-3 py-2 font-bold">${user.name}</td>
-                        <td class="border border-slate-200 px-3 py-1 align-middle">${signColumn}</td>
-                    </tr>
-                `;
-            }).join("");
+                    return `
+                        <tr class="hover:bg-slate-50 transition duration-150">
+                            <td class="border border-slate-200 px-3 py-2 font-mono text-slate-400">${index + 1}</td>
+                            <td class="border border-slate-200 px-3 py-2 text-slate-700">${user.affiliation}</td>
+                            <td class="border border-slate-200 px-3 py-2 text-slate-600">${user.position}</td>
+                            <td class="border border-slate-200 px-3 py-2 font-bold">${user.name}</td>
+                            <td class="border border-slate-200 px-3 py-1 align-middle">${signColumn}</td>
+                        </tr>
+                    `;
+                }).join("");
+            }
 
             printTableBody.innerHTML = teacherList.map((user, index) => {
                 let signColumn = ``;
