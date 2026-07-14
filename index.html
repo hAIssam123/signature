@@ -1,24 +1,245 @@
-// ==============================================
-        // ⚠️ [필수] 여기에 본인의 Supabase 정보를 입력하세요!
-        // ==============================================
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>연수 등록부 모바일 서명 시스템 (실시간 DB 연동)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* ==============================================
+           [인쇄 전용 스타일 설정] 
+           ============================================== */
+        @media print {
+            body, header, main, section, .no-print {
+                display: none !important;
+            }
+            #print-area {
+                display: block !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 10mm !important;
+                background: white !important;
+                color: black !important;
+            }
+            table, th, td {
+                border: 1px solid #000000 !important;
+                color: #000000 !important;
+            }
+            th {
+                background-color: #f3f4f6 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+        /* 모바일 전체 화면 꽉 채움 스타일 (QR 모드 전용) */
+        .fullscreen-mobile {
+            max-width: 100% !important;
+            width: 100% !important;
+            height: 100vh !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 font-sans">
+
+    <header id="admin-header" class="bg-slate-900 text-white p-4 shadow-md no-print">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold flex items-center gap-2">📝 QR 연수 등록부 서명 통합 솔루션</h1>
+            <span class="bg-emerald-600 text-xs px-3 py-1 rounded-full font-semibold">실시간 동기화 On</span>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-6 no-print">
+        
+        <section id="admin-left-section" class="lg:col-span-7 space-y-6">
+            
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">🛠️ [관리자] 연수 및 교육 정보 설정</h2>
+               
+                <div class="mb-4">
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">연수(행사) 제목</label>
+                    <input type="text" id="admin-title-input" value="2026학년도 에듀테크 활용 교사 연수" oninput="updateTitleAndDesc()"
+                           class="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium">
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">교육 설명 (일시, 방법 등)</label>
+                    <textarea id="admin-desc-input" rows="3" oninput="updateTitleAndDesc()"
+                              class="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-sm">일시: 2026년 7월 14일 14:00&#10;방법: 본교 시청각실 대면 집합 연수&#10;강사: 홍길동 수석교사</textarea>
+                </div>
+
+                <div class="border-t border-slate-100 pt-4">
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">교사 리스트 등록 (Excel)</label>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="downloadSampleExcel()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold py-2.5 px-4 rounded-lg transition flex items-center gap-1.5">
+                            📥 형식(Excel) 다운로드
+                        </button>
+                        <label class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold py-2.5 px-4 rounded-lg transition cursor-pointer flex items-center gap-1.5 border border-indigo-200">
+                            📤 엑셀 파일 업로드
+                            <input type="file" id="excel-file-input" accept=".xlsx, .xls" onchange="importExcelAndUpload(event)" class="hidden">
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row items-center gap-6">
+                <div class="flex-1">
+                    <h2 class="text-lg font-bold text-slate-900 mb-2">🔗 모바일 서명용 QR 배포</h2>
+                    <p class="text-sm text-slate-500 mb-4">아래 버튼을 누르면 스마트폰 전용 서명 페이지로만 연결되는 고유 QR코드가 활성화됩니다.</p>
+                    <button onclick="generateQRCode()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow transition">
+                        QR 링크 생성하기
+                    </button>
+                </div>
+                <div id="qr-container" class="w-40 h-40 border border-slate-200 rounded-xl bg-slate-50 flex items-center justify-center relative overflow-hidden">
+                    <div id="qrcode" class="p-2"></div>
+                    <span id="qr-placeholder" class="text-xs text-slate-400 absolute text-center px-4">QR 코드가 생성되면 여기에 나타납니다.</span>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-bold text-slate-900">📊 실시간 서명 현황판 (모니터링용)</h2>
+                    <button onclick="window.print()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition">
+                        🖨️ PDF 파일 인쇄 / 저장
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full border-collapse border border-slate-200 text-sm text-center">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-600 font-semibold">
+                                <th class="border border-slate-200 px-3 py-2 w-12">번호</th>
+                                <th class="border border-slate-200 px-3 py-2">소속</th>
+                                <th class="border border-slate-200 px-3 py-2">직위</th>
+                                <th class="border border-slate-200 px-3 py-2">성명</th>
+                                <th class="border border-slate-200 px-3 py-2 h-10">서명 상태</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-table-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </section>
+
+        <section id="mobile-section" class="lg:col-span-5">
+            <div class="sticky top-6">
+                <div id="phone-container" class="bg-slate-950 p-3 rounded-[40px] shadow-2xl border-4 border-slate-800 max-w-[380px] mx-auto">
+                    <div class="bg-white rounded-[32px] overflow-hidden min-h-[640px] flex flex-col justify-between">
+                        
+                        <div class="bg-indigo-900 text-white px-6 py-4 pt-6 text-center">
+                            <span class="text-[10px] bg-indigo-700 text-indigo-200 px-2.5 py-0.5 rounded-full font-mono">QR LINK PAGE</span>
+                            <h3 id="mobile-title" class="font-bold text-sm mt-1 truncate">2026학년도 에듀테크 활용 교사 연수</h3>
+                        </div>
+
+                        <div class="p-5 flex-1 overflow-y-auto space-y-5">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-1.5">이름 검색 / 선택</label>
+                                <div class="relative">
+                                    <input type="text" id="mobile-search" oninput="searchTeacher()" placeholder="성함을 입력하세요 (예: 홍길동)"
+                                           class="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                                    
+                                    <div id="search-dropdown" class="absolute z-20 w-full bg-white border border-slate-200 rounded-xl mt-1 shadow-lg max-h-48 overflow-y-auto hidden">
+                                    </div>
+                                </div>
+
+                                <div id="duplicate-warning-box" class="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl hidden">
+                                    <p class="text-xs text-amber-800 font-semibold mb-2">⚠️ 동명이인이 존재합니다. 본인의 정보가 맞는지 선택해 주세요.</p>
+                                    <select id="duplicate-selector" onchange="handleDuplicateSelection(this.value)" class="w-full p-2 text-xs border border-amber-300 rounded-lg bg-white outline-none">
+                                    </select>
+                                </div>
+
+                                <div id="selected-badge" class="mt-2.5 hidden">
+                                    <span class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                        📌 선택됨: <span id="selected-teacher-info"></span>
+                                        <button onclick="resetSelectedTeacher()" class="text-indigo-400 hover:text-indigo-600 font-bold ml-1 text-sm">×</button>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-1.5">친필 서명 등록</label>
+                                <div class="border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 relative overflow-hidden h-36">
+                                    <canvas id="sig-pad" class="absolute top-0 left-0 w-full h-full cursor-crosshair"></canvas>
+                                </div>
+                                <div class="flex justify-between items-center mt-1.5">
+                                    <span class="text-[10px] text-slate-400">화면에 손가락으로 직접 서명해 주세요.</span>
+                                    <button onclick="clearSig()" class="text-xs font-bold text-slate-500 hover:text-slate-800 bg-slate-100 px-2 py-1 rounded">다시 그리기</button>
+                                </div>
+                            </div>
+
+                            <button onclick="submitMobileSignature()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow text-sm transition">
+                                📝 등록부에 서명 제출하기
+                            </button>
+
+                        </div>
+
+                        <div class="pb-4 pt-1 flex justify-center bg-white">
+                            <div class="w-28 h-1.5 bg-slate-300 rounded-full"></div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <div id="print-area" class="hidden">
+        <div class="text-center mb-8">
+            <h1 id="print-title" class="text-2xl font-bold underline decoration-double tracking-wide">2026학년도 에듀테크 활용 교사 연수</h1>
+            <p class="text-xs text-gray-500 mt-1">참석자 연수 등록 명단</p>
+        </div>
+        <div class="mb-8">
+            <table class="w-full border-collapse border border-black text-xs text-center">
+                <thead>
+                    <tr class="bg-gray-100">
+                        <th class="border border-black px-3 py-2 w-12 font-bold">번호</th>
+                        <th class="border border-black px-3 py-2 w-1/4 font-bold">소속</th>
+                        <th class="border border-black px-3 py-2 w-1/4 font-bold">직위</th>
+                        <th class="border border-black px-3 py-2 w-1/4 font-bold">성명</th>
+                        <th class="border border-black px-3 py-2 w-1/4 h-10 font-bold">서명</th>
+                    </tr>
+                </thead>
+                <tbody id="print-table-body">
+                </tbody>
+            </table>
+        </div>
+        <div class="border-t border-slate-300 pt-4 mt-12 text-left">
+            <h3 class="text-xs font-bold text-gray-700 mb-2">[교육 정보 안내]</h3>
+            <pre id="print-description" class="text-xs text-gray-600 font-sans leading-relaxed whitespace-pre-wrap">일시: 2026년 7월 14일 14:00&#10;방법: 본교 시청각실 대면 집합 연수&#10;강사: 홍길동 수석교사</pre>
+        </div>
+    </div>
+
+
+    <script>
+        // ==============================================================
+        // ⚠️ 여기에 본인의 Supabase Project URL과 Anon Key를 입력하세요!
+     // ==============================================
         const SUPABASE_URL = "https://jyfkcvatsztgmtigoeoa.supabase.co/rest/v1/"; 
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5ZmtjdmF0c3p0Z210aWdvZW9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5OTUyMDcsImV4cCI6MjA5OTU3MTIwN30.T0CYK3sHjPfYpD74kV3JO6WjhWOY07ogWqtLnnk85yM";
 
-        // ==============================================
-        // 🛡️ 안전하게 Supabase 초기화 (에러 원천 방지)
-        // ==============================================
+        // ==============================================================
+        // 🛡️ 안전하게 Supabase 초기화 및 에러 핸들링
+        // ==============================================================
         let supabaseClient = null;
-        
         try {
-            // 양끝 공백이나 혹시 모를 괄호가 들어갔을 경우를 대비한 안전 문자열 처리
-            const cleanUrl = https://jyfkcvatsztgmtigoeoa.supabase.co/rest/v1/.replace(/[\)\(\s]/g, "").trim();
-            const cleanKey = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5ZmtjdmF0c3p0Z210aWdvZW9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5OTUyMDcsImV4cCI6MjA5OTU3MTIwN30.T0CYK3sHjPfYpD74kV3JO6WjhWOY07ogWqtLnnk85yM.replace(/[\)\(\s]/g, "").trim();
+            // 복사 도중 포함되었을지 모르는 미세한 공백이나 괄호 기호 예외 처리
+            const cleanUrl = SUPABASE_URL.replace(/[\)\(\s]/g, "").trim();
+            const cleanKey = SUPABASE_ANON_KEY.replace(/[\)\(\s]/g, "").trim();
 
-            if (cleanUrl && cleanUrl !== "https://jyfkcvatsztgmtigoeoa.supabase.co/rest/v1/") {
+            if (cleanUrl && cleanUrl !== "YOUR_SUPABASE_URL") {
                 supabaseClient = supabase.createClient(cleanUrl, cleanKey);
             }
         } catch (e) {
-            console.error("Supabase 초기화 실패:", e);
+            console.error("Supabase 로딩 실패:", e);
         }
 
         let teacherList = [];
@@ -27,33 +248,26 @@
         let isSignMode = false;
 
         window.addEventListener("DOMContentLoaded", async () => {
-            // URL 파라미터 확인 (?mode=sign 인지 여부)
+            // 주소창에서 ?mode=sign 여부 검사
             const urlParams = new URLSearchParams(window.location.search);
             isSignMode = urlParams.get('mode') === 'sign';
 
             if (isSignMode) {
-                // 모바일 전용 페이지 모드: 관리자 화면 완전 차단
-                if (document.getElementById("admin-header")) {
-                    document.getElementById("admin-header").style.display = "none";
-                }
-                if (document.getElementById("admin-left-section")) {
-                    document.getElementById("admin-left-section").style.display = "none";
-                }
+                // 모바일 QR 주소 접속 시 관리자 화면 및 요소를 완전히 숨김
+                if (document.getElementById("admin-header")) document.getElementById("admin-header").style.display = "none";
+                if (document.getElementById("admin-left-section")) document.getElementById("admin-left-section").style.display = "none";
+                
                 const mainLayout = document.querySelector("main");
-                if (mainLayout) {
-                    mainLayout.className = "flex justify-center items-center min-h-screen bg-slate-100";
-                }
+                if (mainLayout) mainLayout.className = "flex justify-center items-center min-h-screen bg-slate-100";
+                
                 const phoneContainer = document.getElementById("phone-container");
-                if (phoneContainer) {
-                    phoneContainer.className = "fullscreen-mobile bg-white flex flex-col justify-between w-full h-screen";
-                }
+                if (phoneContainer) phoneContainer.className = "fullscreen-mobile bg-white flex flex-col justify-between w-full h-screen";
+                
                 const mobileSec = document.getElementById("mobile-section");
-                if (mobileSec) {
-                    mobileSec.className = "w-full h-screen";
-                }
+                if (mobileSec) mobileSec.className = "w-full h-screen";
             }
 
-            // 시그니처 패드 초기화
+            // 시그니처 패드 설정
             const canvas = document.getElementById("sig-pad");
             if (canvas) {
                 sigPad = new SignaturePad(canvas, {
@@ -72,16 +286,16 @@
                 resizeCanvas();
             }
 
-            // DB에서 명단 로드 및 실시간 연동 시작
+            // DB에서 교사 명단 1차 수집 및 실시간(Realtime) 바인딩 시작
             if (supabaseClient) {
                 await loadTeacherListFromDB();
                 subscribeToDatabase();
             } else {
-                console.warn("Supabase가 연결되지 않아 로컬 테스트 모드로 작동합니다.");
+                console.warn("로컬 모드로 임시 로드되었습니다.");
             }
         });
 
-        // Supabase DB에서 목록 가져오기
+        // 데이터베이스에서 목록 가져오기
         async function loadTeacherListFromDB() {
             if (!supabaseClient) return;
             try {
@@ -104,11 +318,11 @@
                     renderAdminTable();
                 }
             } catch (err) {
-                console.error("데이터 로드 실패:", err);
+                console.error("명단 로드 에러:", err);
             }
         }
 
-        // 실시간(Realtime) DB 감시 설정
+        // 실시간 동기화 채널 활성화
         function subscribeToDatabase() {
             if (!supabaseClient) return;
             try {
@@ -119,7 +333,7 @@
                     })
                     .subscribe();
             } catch (err) {
-                console.error("실시간 채널 구독 실패:", err);
+                console.error("실시간 스트림 실패:", err);
             }
         }
 
@@ -144,10 +358,10 @@
             XLSX.writeFile(wb, "연수_서명대상_명단양식.xlsx");
         }
 
-        // 엑셀 업로드 시 기존 데이터 모두 지우고 DB에 새로 밀어넣기
+        // 엑셀 업로드 시 기존 원격 DB 초기화 후 새 리스트 벌크 삽입
         async function importExcelAndUpload(event) {
             if (!supabaseClient) {
-                alert("Supabase API 키가 등록되지 않아 업로드할 수 없습니다.");
+                alert("Supabase 연결이 완료되지 않았습니다.");
                 return;
             }
             const input = event.target;
@@ -170,11 +384,11 @@
                     })).filter(user => user.name !== "");
 
                     if (newTeachers.length === 0) {
-                        alert("가져올 명단 데이터가 없습니다.");
+                        alert("가져올 데이터가 없습니다.");
                         return;
                     }
 
-                    // 1. 기존 DB 데이터 전체 삭제
+                    // 1. 기존 데이터 전체 제거
                     const { error: deleteError } = await supabaseClient
                         .from('teachers')
                         .delete()
@@ -182,18 +396,18 @@
 
                     if (deleteError) throw deleteError;
 
-                    // 2. 새 명단 DB 일괄 추가
+                    // 2. 일괄 추가
                     const { error: insertError } = await supabaseClient
                         .from('teachers')
                         .insert(newTeachers);
 
                     if (insertError) throw insertError;
 
-                    alert(`성공! 총 ${newTeachers.length}명의 교사 명단을 DB에 업로드했습니다.`);
+                    alert(`정상 등록! 총 ${newTeachers.length}명의 교사 명단이 DB에 업로드되었습니다.`);
                     await loadTeacherListFromDB();
                     resetSelectedTeacher();
                 } catch (err) {
-                    alert("명단 등록 실패: " + err.message);
+                    alert("명단 동기화 실패: " + err.message);
                 }
             };
 
@@ -202,25 +416,23 @@
             }
         }
 
-        // QR 생성 함수 (전역 안전 선언 완료)
+        // QR 생성 (문법 오류 없이 온전하게 구현 완료)
         function generateQRCode() {
             const qrTarget = document.getElementById("qrcode");
             const placeholder = document.getElementById("qr-placeholder");
             
             if (!qrTarget) return;
 
-            // 1. 기존 QR 코드 엘리먼트 완전 초기화
             qrTarget.innerHTML = ""; 
             if (placeholder) {
                 placeholder.classList.add("hidden");
             }
 
-            // 2. 현재 주소 뒤에 '?mode=sign'을 강제로 붙여 모바일 전용 주소 획득
             const baseWebURL = window.location.origin + window.location.pathname;
+            // ?mode=sign 쿼리를 붙여 모바일 전용 주소로 QR코드 이미지 생성
             const signPageURL = `${baseWebURL}?mode=sign`;
 
             try {
-                // 3. QRCode.js 라이브러리 호출
                 new QRCode(qrTarget, {
                     text: signPageURL,
                     width: 130,
@@ -229,13 +441,11 @@
                     colorLight : "#ffffff",
                     correctLevel : QRCode.CorrectLevel.H
                 });
-                alert("스마트폰 전용 모바일 서명 QR이 생성되었습니다!");
+                alert("모바일 전용 서명 웹 QR코드가 안전하게 활성화되었습니다!");
             } catch (err) {
-                console.error("QR 생성 실패:", err);
-                alert("QR 라이브러리 파일 로딩이 늦어지고 있습니다. 잠시 후 다시 시도해 주세요.");
-                if (placeholder) {
-                    placeholder.classList.remove("hidden");
-                }
+                console.error("QR 렌더링 에러:", err);
+                alert("QR 라이브러리 로드가 지연되고 있습니다. 잠시 후 버튼을 다시 눌러주세요.");
+                if (placeholder) placeholder.classList.remove("hidden");
             }
         }
 
@@ -250,7 +460,7 @@
 
             const matched = teacherList.filter(user => !user.signed && user.name.includes(query));
             if (matched.length === 0) {
-                dropdown.innerHTML = `<div class="p-3 text-xs text-slate-400 text-center">결과가 없거나 이미 서명을 완료했습니다.</div>`;
+                dropdown.innerHTML = `<div class="p-3 text-xs text-slate-400 text-center">결과가 없거나 이미 서명한 교사입니다.</div>`;
             } else {
                 dropdown.innerHTML = matched.map(user => `
                     <div onclick="processTeacherSelection(${user.id})" 
@@ -281,7 +491,6 @@
                             <option value="${user.id}">${user.name} - ${user.affiliation} [${user.position}]</option>
                         `).join("");
                 }
-                
                 selectedTeacherId = null; 
                 const badge = document.getElementById("selected-badge");
                 if (badge) badge.classList.add("hidden");
@@ -323,26 +532,24 @@
             if (sigPad) sigPad.clear();
         }
 
-        // 서명 제출 처리 및 Supabase DB 반영
+        // 모바일 서명 제출 후 원격 Supabase DB 즉시 반영
         async function submitMobileSignature() {
             if (!supabaseClient) {
-                alert("현재 로컬 테스트 모드입니다. DB 연결(URL/Key)을 완료해 주세요.");
+                alert("현재 로컬 테스트 모드입니다. DB 설정을 마쳐주세요.");
                 return;
             }
             if (!selectedTeacherId) {
-                alert("본인 이름을 먼저 검색하고 선택해 주세요!");
+                alert("본인 이름을 검색해 선택해 주세요!");
                 return;
             }
-
             if (!sigPad || sigPad.isEmpty()) {
-                alert("서명란에 친필 서명을 기입해 주세요!");
+                alert("서명란에 직접 서명해 주세요!");
                 return;
             }
 
             const imgData = sigPad.toDataURL("image/png");
             
             try {
-                // Supabase에 서명 저장 처리
                 const { error } = await supabaseClient
                     .from('teachers')
                     .update({ signed: true, signature_img: imgData })
@@ -350,12 +557,12 @@
 
                 if (error) throw error;
 
-                alert("서명이 안전하게 데이터베이스에 등록되었습니다! 감사합니다.");
+                alert("서명이 완료되어 데이터베이스에 안전하게 기록되었습니다!");
                 resetSelectedTeacher();
                 clearSig();
                 await loadTeacherListFromDB();
             } catch (err) {
-                alert("서명 전송 실패: " + err.message);
+                alert("서명 처리 도중 오류: " + err.message);
             }
         }
 
@@ -408,3 +615,7 @@
                 }).join("");
             }
         }
+    </script>
+</body>
+</html>
+
