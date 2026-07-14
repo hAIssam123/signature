@@ -11,10 +11,10 @@
         
         try {
             // 양끝 공백이나 혹시 모를 괄호가 들어갔을 경우를 대비한 안전 문자열 처리
-            const cleanUrl = SUPABASE_URL.replace(/[\)\(\s]/g, "").trim();
-            const cleanKey = SUPABASE_ANON_KEY.replace(/[\)\(\s]/g, "").trim();
+            const cleanUrl = https://jyfkcvatsztgmtigoeoa.supabase.co/rest/v1/.replace(/[\)\(\s]/g, "").trim();
+            const cleanKey = sb_publishable_fJclOt95936TSrIx-LClEA_hzMZ3A0d.replace(/[\)\(\s]/g, "").trim();
 
-            if (cleanUrl && cleanUrl !== "YOUR_SUPABASE_URL") {
+            if (cleanUrl && cleanUrl !== "https://jyfkcvatsztgmtigoeoa.supabase.co/rest/v1/") {
                 supabaseClient = supabase.createClient(cleanUrl, cleanKey);
             }
         } catch (e) {
