@@ -10,16 +10,16 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         /* ==============================================
-           [인쇄 전용 스타일 설정] 
-           인쇄(PDF 출력) 시 화면의 UI 요소들을 완전히 숨기고
-           공문서 표준 규격에 맞는 페이지만 인쇄되도록 제어합니다.
+           [인쇄 전용 스타일 설정 - 수정됨] 
            ============================================== */
         @media print {
-            /* 1. 화면의 모든 일반 UI 숨김 */
-            body, header, main, section, .no-print {
+            /* 1. 인쇄 시 화면용 일반 UI를 강제 숨김 */
+            body > header, 
+            body > main, 
+            .no-print {
                 display: none !important;
             }
-            /* 2. 오직 인쇄 전용 영역만 노출 */
+            /* 2. 인쇄 전용 영역을 화면 맨 위로 끌어올려 표시 */
             #print-area {
                 display: block !important;
                 width: 100% !important;
@@ -28,7 +28,6 @@
                 background: white !important;
                 color: black !important;
             }
-            /* 테이블 테두리 흑백 고정 */
             table, th, td {
                 border: 1px solid #000000 !important;
                 color: #000000 !important;
@@ -56,7 +55,7 @@
             
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                 <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">🛠️ [관리자] 연수 및 교육 정보 설정</h2>
-                
+               
                 <div class="mb-4">
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">연수(행사) 제목</label>
                     <input type="text" id="admin-title-input" value="2026학년도 에듀테크 활용 교사 연수" oninput="updateTitleAndDesc()"
@@ -117,7 +116,7 @@
                             </tr>
                         </thead>
                         <tbody id="admin-table-body">
-                            </tbody>
+                        </tbody>
                     </table>
                 </div>
             </div>
@@ -135,7 +134,6 @@
                         </div>
 
                         <div class="p-5 flex-1 overflow-y-auto space-y-5">
-                            
                             <div>
                                 <label class="block text-xs font-bold text-slate-500 mb-1.5">이름 검색 / 입력</label>
                                 <div class="relative">
@@ -143,13 +141,13 @@
                                            class="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
                                     
                                     <div id="search-dropdown" class="absolute z-20 w-full bg-white border border-slate-200 rounded-xl mt-1 shadow-lg max-h-48 overflow-y-auto hidden">
-                                        </div>
+                                    </div>
                                 </div>
 
                                 <div id="duplicate-warning-box" class="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl hidden">
                                     <p class="text-xs text-amber-800 font-semibold mb-2">⚠️ 동명이인이 존재합니다. 본인의 정보가 맞는지 선택해 주세요.</p>
                                     <select id="duplicate-selector" onchange="handleDuplicateSelection(this.value)" class="w-full p-2 text-xs border border-amber-300 rounded-lg bg-white outline-none">
-                                        </select>
+                                    </select>
                                 </div>
 
                                 <div id="selected-badge" class="mt-2.5 hidden">
@@ -206,7 +204,7 @@
                     </tr>
                 </thead>
                 <tbody id="print-table-body">
-                    </tbody>
+                </tbody>
             </table>
         </div>
 
@@ -223,23 +221,20 @@
             { id: 1, name: "김민준", affiliation: "서울초등학교", position: "교사", signed: false, signatureImg: "" },
             { id: 2, name: "이서연", affiliation: "서울초등학교", position: "교사", signed: false, signatureImg: "" },
             { id: 3, name: "박지민", affiliation: "미래중학교", position: "교감", signed: false, signatureImg: "" },
-            { id: 4, name: "김민준", affiliation: "미래중학교", position: "교사", signed: false, signatureImg: "" }, // 동명이인 테스트용
+            { id: 4, name: "김민준", affiliation: "미래중학교", position: "교사", signed: false, signatureImg: "" }, 
             { id: 5, name: "이지원", affiliation: "경기고등학교", position: "부장교사", signed: false, signatureImg: "" }
         ];
-
         let selectedTeacherId = null;
         let sigPad = null;
         let qrGenerator = null;
 
         window.addEventListener("DOMContentLoaded", () => {
-            // 서명 패드 바인딩
             const canvas = document.getElementById("sig-pad");
             sigPad = new SignaturePad(canvas, {
                 backgroundColor: 'rgba(255, 255, 255, 0)',
                 penColor: 'rgb(30, 58, 138)'
             });
 
-            // 캔버스 크기 동적 할당 함수
             function resizeCanvas() {
                 const ratio = Math.max(window.devicePixelRatio || 1, 1);
                 canvas.width = canvas.offsetWidth * ratio;
@@ -250,38 +245,30 @@
             window.addEventListener("resize", resizeCanvas);
             resizeCanvas();
 
-            // 관리자 화면 및 인쇄 전용 템플릿 렌더링
             renderAdminTable();
         });
 
-        // 1. 연수 제목 & 교육 설명 정보 수정 동기화
         function updateTitleAndDesc() {
             const titleVal = document.getElementById("admin-title-input").value;
             const descVal = document.getElementById("admin-desc-input").value;
 
-            // 모바일 폰 화면 동기화
             document.getElementById("mobile-title").innerText = titleVal;
-
-            // PDF/인쇄 레이아웃용 영역 실시간 동기화
             document.getElementById("print-title").innerText = titleVal;
             document.getElementById("print-description").innerText = descVal;
         }
 
-        // 2. 엑셀 파일 형식 예시 다운로드 (SheetJS 이용)
         function downloadSampleExcel() {
             const sampleData = [
                 { "성명": "강하늘", "소속": "하늘초등학교", "직위": "교사" },
                 { "성명": "백두산", "소속": "태백중학교", "직위": "부장교사" },
                 { "성명": "이서연", "소속": "한라초등학교", "직위": "교사" }
             ];
-            
             const wb = XLSX.utils.book_new();
             const ws = XLSX.utils.json_to_sheet(sampleData);
             XLSX.utils.book_append_sheet(wb, ws, "교사명단");
             XLSX.writeFile(wb, "연수_서명대상_명단양식.xlsx");
         }
 
-        // 3. 엑셀 업로드 처리 및 상태 리프레시
         function importExcel(event) {
             const input = event.target;
             const reader = new FileReader();
@@ -293,7 +280,6 @@
                 const sheet = workbook.Sheets[sheetName];
                 const rows = XLSX.utils.sheet_to_json(sheet);
 
-                // 마스터 리스트를 새 엑셀 데이터로 교체
                 teacherList = rows.map((row, index) => ({
                     id: index + 1,
                     name: row["성명"] || row["이름"] || "",
@@ -302,28 +288,22 @@
                     signed: false,
                     signatureImg: ""
                 })).filter(user => user.name !== "");
-
                 alert(`엑셀 명단 등록 성공! 총 ${teacherList.length}명의 교사 리스트를 불러왔습니다.`);
                 renderAdminTable();
                 resetSelectedTeacher();
             };
-
             if (input.files[0]) {
                 reader.readAsBinaryString(input.files[0]);
             }
         }
 
-        // 4. QR 코드 및 접속 링크 생성기
         function generateQRCode() {
             const qrTarget = document.getElementById("qrcode");
             const placeholder = document.getElementById("qr-placeholder");
             
-            qrTarget.innerHTML = ""; // 기존 QR 제거
+            qrTarget.innerHTML = ""; 
             placeholder.classList.add("hidden");
-
-            // 로컬 데모에서는 편의상 현재 페이지 URL을 기본 탑재합니다.
-            const accessURL = window.location.href; 
-            
+            const accessURL = window.location.href;
             qrGenerator = new QRCode(qrTarget, {
                 text: accessURL,
                 width: 130,
@@ -332,11 +312,9 @@
                 colorLight : "#ffffff",
                 correctLevel : QRCode.CorrectLevel.H
             });
-            
             alert("연수 등록용 QR 코드 및 모바일 주소가 정상적으로 활성화되었습니다!");
         }
 
-        // 5. 모바일 이름 검색 및 동명이인 자동 구분 로직
         function searchTeacher() {
             const query = document.getElementById("mobile-search").value.trim();
             const dropdown = document.getElementById("search-dropdown");
@@ -346,9 +324,7 @@
                 return;
             }
 
-            // 전체 검색어 매칭 대상 (미서명 대상자만)
             const matched = teacherList.filter(user => !user.signed && user.name.includes(query));
-
             if (matched.length === 0) {
                 dropdown.innerHTML = `<div class="p-3 text-xs text-slate-400 text-center">검색 결과가 없거나 이미 서명을 마친 교사입니다.</div>`;
             } else {
@@ -363,7 +339,6 @@
             dropdown.classList.remove("hidden");
         }
 
-        // 6. 이름 선택 시 중복 등록을 처리하는 비즈니스 핵심 로직
         function processTeacherSelection(id) {
             const selectedUser = teacherList.find(user => user.id === id);
             const duplicates = teacherList.filter(user => !user.signed && user.name === selectedUser.name);
@@ -373,27 +348,22 @@
 
             dropdown.classList.add("hidden");
 
-            // 동명이인이 2명 이상 발견된 경우 처리
             if (duplicates.length > 1) {
                 dupBox.classList.remove("hidden");
-                
-                // 중복 대상자 정보를 드롭다운 선택지에 바인딩
                 dupSelector.innerHTML = `<option value="">-- 본인의 소속을 선택해 주세요 --</option>` + 
                     duplicates.map(user => `
                         <option value="${user.id}">${user.name} - ${user.affiliation} [${user.position}]</option>
                     `).join("");
                 
-                selectedTeacherId = null; // 드롭다운 확정 전까지 선택 임시 해제
+                selectedTeacherId = null; 
                 document.getElementById("selected-badge").classList.add("hidden");
             } else {
-                // 단일 매칭 시 즉시 선택 확정
                 dupBox.classList.add("hidden");
                 setSelectedTeacher(selectedUser);
             }
             document.getElementById("mobile-search").value = "";
         }
 
-        // 중복자 선택 드롭다운 체인지 이벤트
         function handleDuplicateSelection(selectedVal) {
             if (!selectedVal) return;
             const targetUser = teacherList.find(user => user.id == selectedVal);
@@ -401,26 +371,22 @@
             document.getElementById("duplicate-warning-box").classList.add("hidden");
         }
 
-        // 선택 완료 세팅
         function setSelectedTeacher(user) {
             selectedTeacherId = user.id;
             document.getElementById("selected-teacher-info").innerText = `${user.name} (${user.affiliation})`;
             document.getElementById("selected-badge").classList.remove("hidden");
         }
 
-        // 선택 취소
         function resetSelectedTeacher() {
             selectedTeacherId = null;
             document.getElementById("selected-badge").classList.add("hidden");
             document.getElementById("duplicate-warning-box").classList.add("hidden");
         }
 
-        // 서명 리셋
         function clearSig() {
             sigPad.clear();
         }
 
-        // 7. 모바일 서명 제출 후 관리자 전광판 실시간 반영
         function submitMobileSignature() {
             if (!selectedTeacherId) {
                 alert("본인 이름을 먼저 검색하고 선택해 주세요!");
@@ -433,8 +399,6 @@
             }
 
             const imgData = sigPad.toDataURL("image/png");
-            
-            // 데이터베이스 배열 업데이트
             const idx = teacherList.findIndex(user => user.id === selectedTeacherId);
             if (idx !== -1) {
                 teacherList[idx].signed = true;
@@ -442,16 +406,12 @@
 
                 alert(`${teacherList[idx].name} 선생님, 서명이 안전하게 등록되었습니다!`);
                 
-                // 모바일 영역 리셋
                 resetSelectedTeacher();
                 clearSig();
-
-                // 관리자판 및 인쇄용 템플릿 실시간 갱신
                 renderAdminTable();
             }
         }
 
-        // 8. 관리자 수합 테이블 & 인쇄용 전용 테이블 동적 렌더링
         function renderAdminTable() {
             const adminTableBody = document.getElementById("admin-table-body");
             const printTableBody = document.getElementById("print-table-body");
@@ -463,7 +423,6 @@
                 return;
             }
 
-            // [화면용] 관리자 모니터링 테이블 렌더링
             adminTableBody.innerHTML = teacherList.map((user, index) => {
                 let signColumn = `<span class="text-rose-500 font-bold bg-rose-50 px-2 py-1 rounded text-xs">미서명</span>`;
                 if (user.signed && user.signatureImg) {
@@ -481,7 +440,6 @@
                 `;
             }).join("");
 
-            // [인쇄/파일 전용] 정적 공문서 스타일 테이블 렌더링
             printTableBody.innerHTML = teacherList.map((user, index) => {
                 let signColumn = ``;
                 if (user.signed && user.signatureImg) {
