@@ -219,13 +219,19 @@
 
 
     <script>
-        // ==============================================
+     // ==============================================
         // ⚠️ 여기에 본인의 Supabase Project URL과 Anon Key를 입력하세요!
         // ==============================================
         const SUPABASE_URL = "https://jyfkcvatsztgmtigoeoa.supabase.co/rest/v1/"; 
         const SUPABASE_ANON_KEY = "sb_publishable_fJclOt95936TSrIx-LClEA_hzMZ3A0d";
 
-        const supabaseClient = supabase.createClient(https://jyfkcvatsztgmtigoeoa.supabase.co/rest/v1/, sb_publishable_fJclOt95936TSrIx-LClEA_hzMZ3A0d);
+        // Supabase 초기화 (오류 방지를 위해 전역 변수로 분리)
+        let supabaseClient;
+        try {
+            supabaseClient = supabase.createClient(https://jyfkcvatsztgmtigoeoa.supabase.co/rest/v1/, sb_publishable_fJclOt95936TSrIx-LClEA_hzMZ3A0d);
+        } catch (e) {
+            console.error("Supabase 연결 설정 중 오류 발생:", e);
+        }
 
         let teacherList = [];
         let selectedTeacherId = null;
@@ -264,12 +270,17 @@
             resizeCanvas();
 
             // DB에서 명단 로드 및 실시간 연동 시작
-            await loadTeacherListFromDB();
-            subscribeToDatabase();
+            if (supabaseClient) {
+                await loadTeacherListFromDB();
+                subscribeToDatabase();
+            } else {
+                alert("Supabase 설정 값을 먼저 입력해 주세요!");
+            }
         });
 
         // Supabase DB에서 목록 가져오기
         async function loadTeacherListFromDB() {
+            if (!supabaseClient) return;
             const { data, error } = await supabaseClient
                 .from('teachers')
                 .select('*')
@@ -295,6 +306,7 @@
 
         // 실시간(Realtime) DB 감시 설정
         function subscribeToDatabase() {
+            if (!supabaseClient) return;
             supabaseClient
                 .channel('realtime_teachers')
                 .on('postgres_changes', { event: '*', filter: 'id=neq.0', schema: 'public', table: 'teachers' }, () => {
@@ -326,6 +338,10 @@
 
         // 엑셀 업로드 시 기존 데이터 모두 지우고 DB에 새로 밀어넣기
         async function importExcelAndUpload(event) {
+            if (!supabaseClient) {
+                alert("Supabase 설정이 완료되지 않았습니다.");
+                return;
+            }
             const input = event.target;
             const reader = new FileReader();
             
@@ -380,27 +396,35 @@
             }
         }
 
-        // QR 생성 시 ?mode=sign 링크로 생성되도록 수정
+        // QR 생성 함수
         function generateQRCode() {
             const qrTarget = document.getElementById("qrcode");
             const placeholder = document.getElementById("qr-placeholder");
             
+            // 1. 기존 QR 코드 엘리먼트 완전 초기화
             qrTarget.innerHTML = ""; 
             placeholder.classList.add("hidden");
 
-            // 현재 주소 뒤에 '?mode=sign'을 강제로 붙여 모바일 전용 주소 획득
+            // 2. 현재 주소 뒤에 '?mode=sign'을 강제로 붙여 모바일 전용 주소 획득
             const baseWebURL = window.location.origin + window.location.pathname;
             const signPageURL = `${baseWebURL}?mode=sign`;
 
-            new QRCode(qrTarget, {
-                text: signPageURL,
-                width: 130,
-                height: 130,
-                colorDark : "#1e1b4b",
-                colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.H
-            });
-            alert("스마트폰 전용 모바일 서명 QR이 생성되었습니다!");
+            try {
+                // 3. QRCode.js 라이브러리 호출
+                new QRCode(qrTarget, {
+                    text: signPageURL,
+                    width: 130,
+                    height: 130,
+                    colorDark : "#1e1b4b",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.H
+                });
+                alert("스마트폰 전용 모바일 서명 QR이 생성되었습니다!");
+            } catch (err) {
+                console.error("QR 생성 실패:", err);
+                alert("QR 라이브러리 로딩 중 문제가 생겼습니다.");
+                placeholder.classList.remove("hidden");
+            }
         }
 
         function searchTeacher() {
@@ -477,6 +501,7 @@
 
         // 서명 제출 처리 및 Supabase DB 반영
         async function submitMobileSignature() {
+            if (!supabaseClient) return;
             if (!selectedTeacherId) {
                 alert("본인 이름을 먼저 검색하고 선택해 주세요!");
                 return;
@@ -553,6 +578,3 @@
                 `;
             }).join("");
         }
-    </script>
-</body>
-</html>
