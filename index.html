@@ -237,7 +237,7 @@
             const cleanUrl = SUPABASE_URL.replace(/[\)\(\s]/g, "").trim();
             const cleanKey = SUPABASE_ANON_KEY.replace(/[\)\(\s]/g, "").trim();
 
-            if (cleanUrl && cleanUrl !== "YOUR_SUPABASE_URL") {
+            if (cleanUrl && cleanUrl !== "https://jyfkcvatsztgmtigoeoa.supabase.co/rest/v1/") {
                 supabaseClient = supabase.createClient(cleanUrl, cleanKey);
             }
         } catch (e) {
