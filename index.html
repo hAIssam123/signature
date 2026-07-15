@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>멀티 연수 등록부 모바일 서명 시스템 (동시 운영 지원)</title>
+    <title>자동 번호 부여식 멀티 연수 서명 시스템 (동시 운영 지원)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -46,8 +46,8 @@
 
     <header id="admin-header" class="bg-slate-900 text-white p-4 shadow-md no-print">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <h1 class="text-xl font-bold flex items-center gap-2">📝 QR 연수 등록부 (다중 행사 동시 지원 모드)</h1>
-            <span class="bg-indigo-600 text-xs px-3 py-1 rounded-full font-semibold">Multi-Event On</span>
+            <h1 class="text-xl font-bold flex items-center gap-2">📝 QR 연수 등록부 (자동 번호 생성 모드)</h1>
+            <span class="bg-indigo-600 text-xs px-3 py-1 rounded-full font-semibold">자동 순번 On</span>
         </div>
     </header>
 
@@ -58,11 +58,14 @@
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                 <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">🛠️ [관리자] 연수 및 교육 정보 설정</h2>
                
-                <div class="mb-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                    <label class="block text-xs font-bold text-indigo-700 uppercase tracking-wider mb-2">⚡ 행사 식별 고유 코드 (영문/숫자 추천)</label>
-                    <input type="text" id="admin-event-id" value="2026_edutech" placeholder="예: 2026_edutech, event_A" onchange="handleEventIdChange()"
-                           class="w-full px-3 py-2.5 border-2 border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-indigo-900">
-                    <p class="text-[11px] text-slate-500 mt-1">※ 다른 행사와 중복되지 않는 고유 키를 입력해 주세요. 이 값을 기준으로 명단이 관리됩니다.</p>
+                <div class="mb-4 bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex justify-between items-center">
+                    <div>
+                        <label class="block text-[10px] font-bold text-indigo-500 uppercase tracking-wider mb-1">현재 활성화된 행사 번호</label>
+                        <span id="display-event-id" class="text-xl font-black text-indigo-900">조회 중...</span>
+                    </div>
+                    <span class="text-xs text-indigo-600 font-semibold bg-white border border-indigo-200 rounded-lg px-2.5 py-1.5 text-right">
+                        💡 엑셀을 업로드하면<br>자동으로 다음 번호가 부여됩니다!
+                    </span>
                 </div>
 
                 <div class="mb-4">
@@ -83,8 +86,8 @@
                         <button onclick="downloadSampleExcel()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold py-2.5 px-4 rounded-lg transition flex items-center gap-1.5">
                             📥 형식(Excel) 다운로드
                         </button>
-                        <label class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold py-2.5 px-4 rounded-lg transition cursor-pointer flex items-center gap-1.5 border border-indigo-200">
-                            📤 엑셀 파일 업로드 (현재 고유 코드에만 등록)
+                        <label class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2.5 px-4 rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-sm">
+                            🚀 엑셀 업로드하여 [새로운 연수 개설]
                             <input type="file" id="excel-file-input" accept=".xlsx, .xls" onchange="importExcelAndUpload(event)" class="hidden">
                         </label>
                     </div>
@@ -94,9 +97,9 @@
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row items-center gap-6">
                 <div class="flex-1">
                     <h2 class="text-lg font-bold text-slate-900 mb-2">🔗 모바일 서명용 QR 배포</h2>
-                    <p class="text-sm text-slate-500 mb-4">현재 입력된 고유 코드로 접속하는 스마트폰 전용 서명 페이지용 QR을 만듭니다.</p>
+                    <p class="text-sm text-slate-500 mb-4">현재 열려있는 행사에 접속할 수 있는 전용 QR코드를 화면에 띄웁니다.</p>
                     <button onclick="generateQRCode()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow transition">
-                        이 행사 전용 QR 생성하기
+                        이 연수 전용 QR 생성하기
                     </button>
                 </div>
                 <div id="qr-container" class="w-40 h-40 border border-slate-200 rounded-xl bg-slate-50 flex items-center justify-center relative overflow-hidden">
@@ -171,7 +174,7 @@
                                 <label class="block text-xs font-bold text-slate-500 mb-1.5">친필 서명 등록</label>
                                 <div class="border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 relative overflow-hidden h-36">
                                     <canvas id="sig-pad" class="absolute top-0 left-0 w-full h-full cursor-crosshair"></canvas>
-                                </div>
+                                end</div>
                                 <div class="flex justify-between items-center mt-1.5">
                                     <span class="text-[10px] text-slate-400">화면에 손가락으로 직접 서명해 주세요.</span>
                                     <button onclick="clearSig()" class="text-xs font-bold text-slate-500 hover:text-slate-800 bg-slate-100 px-2 py-1 rounded">다시 그리기</button>
@@ -245,15 +248,15 @@
         let selectedTeacherId = null;
         let sigPad = null;
         let isSignMode = false;
-        let currentEventId = "2026_edutech"; // 기본 관리자 이벤트 아이디
+        let currentEventId = ""; // 로드 완료 후 자동으로 계산 및 할당될 값
 
         window.addEventListener("DOMContentLoaded", async () => {
             const urlParams = new URLSearchParams(window.location.search);
             isSignMode = urlParams.get('mode') === 'sign';
             
-            // 모바일 접속 시 URL 뒤의 ?event=이벤트코드 값을 식별
             const eventParam = urlParams.get('event');
             if (eventParam) {
+                // 모바일 접속 시 QR에 기록된 해당 행사 번호로 연결
                 currentEventId = eventParam;
             }
 
@@ -269,10 +272,6 @@
                 
                 const mobileSec = document.getElementById("mobile-section");
                 if (mobileSec) mobileSec.className = "w-full h-screen";
-            } else {
-                // 관리자 모드인 경우 입력창에 설정된 값을 로드
-                currentEventId = document.getElementById("admin-event-id").value.trim();
-                document.getElementById("status-event-id").innerText = currentEventId;
             }
 
             // 시그니처 패드 설정
@@ -295,28 +294,60 @@
             }
 
             if (supabaseClient) {
+                if (!isSignMode) {
+                    // 관리자 모드인 경우: 가장 최근 행사(숫자가 높은 번호) 또는 기본 event_1을 자동으로 할당
+                    await autoFindOrCreateLatestEvent();
+                }
                 await loadTeacherListFromDB();
                 subscribeToDatabase();
             }
         });
 
-        // 관리자가 식별 코드를 변경했을 때 작동
-        async function handleEventIdChange() {
-            currentEventId = document.getElementById("admin-event-id").value.trim();
-            document.getElementById("status-event-id").innerText = currentEventId;
-            
-            // 변경된 코드에 맞춰 새로운 정보와 명단을 로드
-            await loadTeacherListFromDB();
+        // 🌟 [자동화 핵심] DB에서 등록된 행사의 수를 파악하여 가장 최신 번호를 기본 활성화하거나 보여주는 함수
+        async function autoFindOrCreateLatestEvent() {
+            if (!supabaseClient) return;
+            try {
+                // 1. 현재 DB에 등록된 모든 서로 다른 event_id의 목록을 추출
+                const { data, error } = await supabaseClient
+                    .from('teachers')
+                    .select('event_id');
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    // 중복 제거하여 존재하는 event_id 수집 (예: ['event_1', 'event_2'])
+                    const uniqueEvents = [...new Set(data.map(item => item.event_id))];
+                    
+                    // 번호 숫자 정렬을 위해 숫자 추출 후 정렬
+                    uniqueEvents.sort((a, b) => {
+                        const numA = parseInt(a.replace(/[^0-9]/g, "")) || 0;
+                        const numB = parseInt(b.replace(/[^0-9]/g, "")) || 0;
+                        return numB - numA; // 내림차순 (최신 것이 가장 위로)
+                    });
+
+                    // 가장 숫자가 높은 최신 행사를 활성화
+                    currentEventId = uniqueEvents[0];
+                } else {
+                    // 만약 DB가 아예 비어있다면 1번부터 시작하도록 설정
+                    currentEventId = "event_1";
+                }
+
+                document.getElementById("display-event-id").innerText = currentEventId.replace("event_", "") + "번 연수";
+                document.getElementById("status-event-id").innerText = currentEventId;
+            } catch (err) {
+                console.error("최신 행사 조회 실패:", err);
+                currentEventId = "event_1";
+            }
         }
 
-        // DB에서 "현재 행사 ID(currentEventId)"에 속한 교사 명단만 실시간 필터링 조회
+        // DB에서 "현재 행사 ID"에 속한 교사 명단만 필터링 조회
         async function loadTeacherListFromDB() {
-            if (!supabaseClient) return;
+            if (!supabaseClient || !currentEventId) return;
             try {
                 const { data, error } = await supabaseClient
                     .from('teachers')
                     .select('*')
-                    .eq('event_id', currentEventId) // 중요: 현재 행사 아이디 데이터만 조회
+                    .eq('event_id', currentEventId)
                     .order('id', { ascending: true });
 
                 if (error) throw error;
@@ -333,7 +364,6 @@
                         eventDesc: item.event_desc
                     }));
 
-                    // 데이터가 존재하는 경우, 헤더의 이벤트 정보 동기화
                     if (teacherList.length > 0) {
                         const eventTitle = teacherList[0].eventTitle;
                         const eventDesc = teacherList[0].eventDesc;
@@ -346,7 +376,7 @@
                             document.getElementById("print-description").innerText = eventDesc;
                         }
                     } else {
-                        document.getElementById("mobile-title").innerText = isSignMode ? "등록된 대상자가 없습니다." : "행사를 새로 설정 후 명단을 업로드해 주세요.";
+                        document.getElementById("mobile-title").innerText = isSignMode ? "등록된 대상자가 없습니다." : "우측 버튼으로 명단을 업로드해 주세요.";
                     }
                     
                     renderAdminTable();
@@ -357,13 +387,13 @@
         }
 
         function subscribeToDatabase() {
-            if (!supabaseClient) return;
+            if (!supabaseClient || !currentEventId) return;
             try {
                 supabaseClient
                     .channel('realtime_teachers')
                     .on('postgres_changes', { 
                         event: '*', 
-                        filter: `event_id=eq.${currentEventId}`, // 내 행사 데이터 변화만 구독 감시
+                        filter: `event_id=eq.${currentEventId}`, 
                         schema: 'public', 
                         table: 'teachers' 
                     }, () => {
@@ -396,7 +426,7 @@
             XLSX.writeFile(wb, "연수_서명대상_명단양식.xlsx");
         }
 
-        // 엑셀 업로드 시 "해당 event_id"를 기준으로 데이터를 지우고 다시 등록합니다 (타 행사에는 무영향)
+        // 🌟 [자동화 핵심] 엑셀 업로드 시 기존에 등록된 행사의 총 갯수 + 1로 순번 고유 키 자동 배정
         async function importExcelAndUpload(event) {
             if (!supabaseClient) {
                 alert("Supabase 연결이 완료되지 않았습니다.");
@@ -408,13 +438,27 @@
             const eventTitle = document.getElementById("admin-title-input").value.trim();
             const eventDesc = document.getElementById("admin-desc-input").value.trim();
 
-            if (!currentEventId) {
-                alert("행사 식별 고유 코드를 먼저 지정해 주세요!");
-                return;
-            }
-
             reader.onload = async function () {
                 try {
+                    // 1. 전체 데이터에서 이미 생성되어 사용 중인 고유 행사 ID 조회
+                    const { data: allRows, error: findError } = await supabaseClient
+                        .from('teachers')
+                        .select('event_id');
+
+                    if (findError) throw findError;
+
+                    let newEventId = "event_1"; // 기본 시작 순번
+
+                    if (allRows && allRows.length > 0) {
+                        const uniqueEvents = [...new Set(allRows.map(row => row.event_id))];
+                        
+                        // 기존 행사 코드 숫자 중 가장 큰 값을 찾아서 + 1
+                        const numbers = uniqueEvents.map(ev => parseInt(ev.replace(/[^0-9]/g, "")) || 0);
+                        const maxNum = Math.max(...numbers);
+                        newEventId = `event_${maxNum + 1}`; // 예: event_2가 제일 컸다면 event_3 생성
+                    }
+
+                    // 2. 엑셀 파일 파싱
                     const fileData = reader.result;
                     const workbook = XLSX.read(fileData, { type: 'binary' });
                     const sheetName = workbook.SheetNames[0];
@@ -422,7 +466,7 @@
                     const rows = XLSX.utils.sheet_to_json(sheet);
 
                     const newTeachers = rows.map(row => ({
-                        event_id: currentEventId, // 행사 식별용 고유 키 추가
+                        event_id: newEventId, // 자동으로 생성된 순번 코드 배정
                         event_title: eventTitle,
                         event_desc: eventDesc,
                         name: row["성명"] || row["이름"] || "",
@@ -433,30 +477,30 @@
                     })).filter(user => user.name !== "");
 
                     if (newTeachers.length === 0) {
-                        alert("가져올 데이터가 없습니다.");
+                        alert("가져올 명단 데이터가 없습니다.");
                         return;
                     }
 
-                    // 1. "해당 행사 코드(event_id)"인 기존 데이터만 지움 (기타 행사 보호)
-                    const { error: deleteError } = await supabaseClient
-                        .from('teachers')
-                        .delete()
-                        .eq('event_id', currentEventId);
-
-                    if (deleteError) throw deleteError;
-
-                    // 2. 새 명단 DB 추가
+                    // 3. 신규 벌크 삽입
                     const { error: insertError } = await supabaseClient
                         .from('teachers')
                         .insert(newTeachers);
 
                     if (insertError) throw insertError;
 
-                    alert(`정상 등록! '${currentEventId}' 행사에 총 ${newTeachers.length}명의 명단이 업로드되었습니다.`);
+                    // 4. 생성 완료 후 현재 가리키는 화면 상태 최신화
+                    currentEventId = newEventId;
+                    
+                    const eventNumberOnly = currentEventId.replace("event_", "");
+                    document.getElementById("display-event-id").innerText = eventNumberOnly + "번 연수";
+                    document.getElementById("status-event-id").innerText = currentEventId;
+
+                    alert(`성공! [${eventNumberOnly}번 연수]로 지정되어 총 ${newTeachers.length}명의 명단이 안전하게 개설되었습니다.`);
+                    
                     await loadTeacherListFromDB();
                     resetSelectedTeacher();
                 } catch (err) {
-                    alert("명단 동기화 실패: " + err.message);
+                    alert("새 연수 등록 실패: " + err.message);
                 }
             };
 
@@ -465,14 +509,14 @@
             }
         }
 
-        // QR 생성 (주소 뒤에 ?event=행사식별코드를 포함하여 생성)
+        // QR 생성
         function generateQRCode() {
             const qrTarget = document.getElementById("qrcode");
             const placeholder = document.getElementById("qr-placeholder");
             
             if (!qrTarget) return;
             if (!currentEventId) {
-                alert("행사 고유 코드를 먼저 입력해야 QR 생성이 가능합니다!");
+                alert("아직 등록된 연수가 없습니다. 엑셀을 먼저 올려주세요!");
                 return;
             }
 
@@ -480,7 +524,6 @@
             if (placeholder) placeholder.classList.add("hidden");
 
             const baseWebURL = window.location.origin + window.location.pathname;
-            // 주소 뒤에 행사 고유 키 파라미터를 추가
             const signPageURL = `${baseWebURL}?mode=sign&event=${encodeURIComponent(currentEventId)}`;
 
             try {
@@ -492,10 +535,12 @@
                     colorLight : "#ffffff",
                     correctLevel : QRCode.CorrectLevel.H
                 });
-                alert(`'${currentEventId}' 전용 모바일 서명 웹 QR코드가 생성되었습니다!`);
+                
+                const currentNum = currentEventId.replace("event_", "");
+                alert(`[${currentNum}번 연수] 전용 스마트폰 서명 QR코드가 활성화되었습니다!`);
             } catch (err) {
-                console.error("QR 렌더링 에러:", err);
-                alert("QR 라이브러리 준비 중 오류 발생");
+                console.error("QR 생성 실패:", err);
+                alert("QR 라이브러리 실행 오류");
                 if (placeholder) placeholder.classList.remove("hidden");
             }
         }
@@ -621,7 +666,7 @@
             const printTableBody = document.getElementById("print-table-body");
             
             if (teacherList.length === 0) {
-                const emptyRow = `<tr><td colspan="5" class="p-8 text-slate-400 text-center">등록된 연수 대상자가 없습니다. 엑셀을 업로드해 주세요.</td></tr>`;
+                const emptyRow = `<tr><td colspan="5" class="p-8 text-slate-400 text-center">등록된 연수 대상자가 없습니다. 우측에서 엑셀을 업로드해 주세요.</td></tr>`;
                 if (!isSignMode && adminTableBody) adminTableBody.innerHTML = emptyRow;
                 if (printTableBody) printTableBody.innerHTML = emptyRow;
                 return;
