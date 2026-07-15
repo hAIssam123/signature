@@ -88,7 +88,7 @@
                         </button>
                         <label class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2.5 px-4 rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-sm">
                             🚀 엑셀 업로드하여 [새로운 연수 개설]
-                            <input type="file" id="excel-file-input" accept=".xlsx, .xls" onchange="importExcelAndUpload(event)" class="hidden">
+                            <input type="file" id="excel-file-input" accept=".xlsx, .xls" onchange="importExcel(event)" class="hidden">
                         </label>
                     </div>
                 </div>
@@ -174,7 +174,7 @@
                                 <label class="block text-xs font-bold text-slate-500 mb-1.5">친필 서명 등록</label>
                                 <div class="border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 relative overflow-hidden h-36">
                                     <canvas id="sig-pad" class="absolute top-0 left-0 w-full h-full cursor-crosshair"></canvas>
-                                end</div>
+                                </div>
                                 <div class="flex justify-between items-center mt-1.5">
                                     <span class="text-[10px] text-slate-400">화면에 손가락으로 직접 서명해 주세요.</span>
                                     <button onclick="clearSig()" class="text-xs font-bold text-slate-500 hover:text-slate-800 bg-slate-100 px-2 py-1 rounded">다시 그리기</button>
@@ -248,7 +248,7 @@
         let selectedTeacherId = null;
         let sigPad = null;
         let isSignMode = false;
-        let currentEventId = ""; // 로드 완료 후 자동으로 계산 및 할당될 값
+        let currentEventId = ""; 
 
         window.addEventListener("DOMContentLoaded", async () => {
             const urlParams = new URLSearchParams(window.location.search);
@@ -256,7 +256,6 @@
             
             const eventParam = urlParams.get('event');
             if (eventParam) {
-                // 모바일 접속 시 QR에 기록된 해당 행사 번호로 연결
                 currentEventId = eventParam;
             }
 
@@ -274,7 +273,6 @@
                 if (mobileSec) mobileSec.className = "w-full h-screen";
             }
 
-            // 시그니처 패드 설정
             const canvas = document.getElementById("sig-pad");
             if (canvas) {
                 sigPad = new SignaturePad(canvas, {
@@ -295,7 +293,6 @@
 
             if (supabaseClient) {
                 if (!isSignMode) {
-                    // 관리자 모드인 경우: 가장 최근 행사(숫자가 높은 번호) 또는 기본 event_1을 자동으로 할당
                     await autoFindOrCreateLatestEvent();
                 }
                 await loadTeacherListFromDB();
@@ -303,11 +300,10 @@
             }
         });
 
-        // 🌟 [자동화 핵심] DB에서 등록된 행사의 수를 파악하여 가장 최신 번호를 기본 활성화하거나 보여주는 함수
+        // DB에서 등록된 행사의 수를 파악하여 가장 최신 번호를 기본 활성화하거나 보여주는 함수
         async function autoFindOrCreateLatestEvent() {
             if (!supabaseClient) return;
             try {
-                // 1. 현재 DB에 등록된 모든 서로 다른 event_id의 목록을 추출
                 const { data, error } = await supabaseClient
                     .from('teachers')
                     .select('event_id');
@@ -315,20 +311,16 @@
                 if (error) throw error;
 
                 if (data && data.length > 0) {
-                    // 중복 제거하여 존재하는 event_id 수집 (예: ['event_1', 'event_2'])
                     const uniqueEvents = [...new Set(data.map(item => item.event_id))];
                     
-                    // 번호 숫자 정렬을 위해 숫자 추출 후 정렬
                     uniqueEvents.sort((a, b) => {
                         const numA = parseInt(a.replace(/[^0-9]/g, "")) || 0;
                         const numB = parseInt(b.replace(/[^0-9]/g, "")) || 0;
-                        return numB - numA; // 내림차순 (최신 것이 가장 위로)
+                        return numB - numA; 
                     });
 
-                    // 가장 숫자가 높은 최신 행사를 활성화
                     currentEventId = uniqueEvents[0];
                 } else {
-                    // 만약 DB가 아예 비어있다면 1번부터 시작하도록 설정
                     currentEventId = "event_1";
                 }
 
@@ -426,19 +418,21 @@
             XLSX.writeFile(wb, "연수_서명대상_명단양식.xlsx");
         }
 
-        // 🌟 [자동화 핵심] 엑셀 업로드 시 기존에 등록된 행사의 총 갯수 + 1로 순번 고유 키 자동 배정
-        async function importExcelAndUpload(event) {
+        // 🌟 [수정 완료] 엑셀 업로드 시 기존에 등록된 최신 연수 ID 값을 연산하여 순차적으로 event_1, event_2...를 자동 배정합니다.
+        async function importExcel(event) {
             if (!supabaseClient) {
-                alert("Supabase 연결이 완료되지 않았습니다.");
+                alert("Supabase 연결 설정을 먼저 완료해 주세요!");
                 return;
             }
             const input = event.target;
             const reader = new FileReader();
             
+            if (!input.files || input.files.length === 0) return;
+
             const eventTitle = document.getElementById("admin-title-input").value.trim();
             const eventDesc = document.getElementById("admin-desc-input").value.trim();
 
-            reader.onload = async function () {
+            reader.onload = async function (e) {
                 try {
                     // 1. 전체 데이터에서 이미 생성되어 사용 중인 고유 행사 ID 조회
                     const { data: allRows, error: findError } = await supabaseClient
@@ -455,18 +449,18 @@
                         // 기존 행사 코드 숫자 중 가장 큰 값을 찾아서 + 1
                         const numbers = uniqueEvents.map(ev => parseInt(ev.replace(/[^0-9]/g, "")) || 0);
                         const maxNum = Math.max(...numbers);
-                        newEventId = `event_${maxNum + 1}`; // 예: event_2가 제일 컸다면 event_3 생성
+                        newEventId = `event_${maxNum + 1}`; 
                     }
 
                     // 2. 엑셀 파일 파싱
-                    const fileData = reader.result;
+                    const fileData = e.target.result;
                     const workbook = XLSX.read(fileData, { type: 'binary' });
                     const sheetName = workbook.SheetNames[0];
                     const sheet = workbook.Sheets[sheetName];
                     const rows = XLSX.utils.sheet_to_json(sheet);
 
                     const newTeachers = rows.map(row => ({
-                        event_id: newEventId, // 자동으로 생성된 순번 코드 배정
+                        event_id: newEventId, 
                         event_title: eventTitle,
                         event_desc: eventDesc,
                         name: row["성명"] || row["이름"] || "",
@@ -481,7 +475,7 @@
                         return;
                     }
 
-                    // 3. 신규 벌크 삽입
+                    // 3. 데이터베이스에 삽입
                     const { error: insertError } = await supabaseClient
                         .from('teachers')
                         .insert(newTeachers);
@@ -499,14 +493,14 @@
                     
                     await loadTeacherListFromDB();
                     resetSelectedTeacher();
+
+                    input.value = "";
                 } catch (err) {
                     alert("새 연수 등록 실패: " + err.message);
                 }
             };
 
-            if (input.files[0]) {
-                reader.readAsBinaryString(input.files[0]);
-            }
+            reader.readAsBinaryString(input.files[0]);
         }
 
         // QR 생성
