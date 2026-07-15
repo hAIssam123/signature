@@ -229,7 +229,7 @@
         // ==============================================================
         // ⚠️ 여기에 본인의 Supabase Project URL과 Anon Key를 입력하세요!
         // ==============================================================
-        const SUPABASE_URL = "https://jyfkcvatsztgmtigoeoa.supabase.co/rest/v1/"; 
+        const SUPABASE_URL = "https://jyfkcvatsztgmtigoeoa.supabase.co"; 
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5ZmtjdmF0c3p0Z210aWdvZW9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5OTUyMDcsImV4cCI6MjA5OTU3MTIwN30.T0CYK3sHjPfYpD74kV3JO6WjhWOY07ogWqtLnnk85yM";
 
         let supabaseClient = null;
@@ -237,7 +237,7 @@
             const cleanUrl = SUPABASE_URL.replace(/[\)\(\s]/g, "").trim();
             const cleanKey = SUPABASE_ANON_KEY.replace(/[\)\(\s]/g, "").trim();
 
-            if (cleanUrl && cleanUrl !== "https://jyfkcvatsztgmtigoeoa.supabase.co/rest/v1/") {
+            if (cleanUrl && cleanUrl !== "https://jyfkcvatsztgmtigoeoa.supabase.co") {
                 supabaseClient = supabase.createClient(cleanUrl, cleanKey);
             }
         } catch (e) {
